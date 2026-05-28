@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SecureAuth — Register</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg:#050a0e; --surface:#0c1419; --surface2:#111d24;
+      --border:#1a2e3a; --accent:#00d4ff; --accent2:#00ff9d;
+      --danger:#ff4757; --text:#e8f4f8; --muted:#4a6a7a;
+      --font-display:'Syne',sans-serif; --font-mono:'Space Mono',monospace;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{background:var(--bg);color:var(--text);font-family:var(--font-mono);
+         min-height:100vh;display:flex;align-items:center;justify-content:center;}
+    .bg-grid{position:fixed;inset:0;z-index:0;
+      background-image:linear-gradient(rgba(0,212,255,.04) 1px,transparent 1px),
+                       linear-gradient(90deg,rgba(0,212,255,.04) 1px,transparent 1px);
+      background-size:40px 40px;animation:gridMove 20s linear infinite;}
+    @keyframes gridMove{0%{background-position:0 0}100%{background-position:40px 40px}}
+    .wrapper{position:relative;z-index:10;width:100%;max-width:480px;padding:1rem;
+             animation:fadeUp .6s ease both;}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:2px;
+          box-shadow:0 24px 64px rgba(0,0,0,.6),inset 0 1px 0 rgba(0,212,255,.08);}
+    .card-accent-bar{height:3px;background:linear-gradient(90deg,var(--accent),var(--accent2),var(--accent));
+                     background-size:200% 100%;animation:shimmer 3s linear infinite;}
+    @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+    .card-body{padding:2.25rem 2.5rem 2.5rem}
+    .brand{display:flex;align-items:center;gap:.75rem;margin-bottom:1.75rem}
+    .brand-icon{width:40px;height:40px;border:1.5px solid var(--accent);border-radius:2px;
+                display:flex;align-items:center;justify-content:center;color:var(--accent);
+                font-size:1.1rem;box-shadow:0 0 12px rgba(0,212,255,.25)}
+    .brand-text{font-family:var(--font-display);font-weight:800;font-size:1.15rem;letter-spacing:.08em}
+    .brand-sub{font-size:.65rem;color:var(--muted);letter-spacing:.15em;text-transform:uppercase;margin-top:3px}
+    .form-label{font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;
+                color:var(--muted);margin-bottom:.45rem;display:block}
+    .input-wrap{position:relative;margin-bottom:1.1rem}
+    .input-icon{position:absolute;left:1rem;top:50%;transform:translateY(-50%);
+                color:var(--muted);font-size:.95rem;pointer-events:none;transition:color .25s}
+    .form-control{background:var(--surface2)!important;border:1px solid var(--border)!important;
+                  border-radius:2px!important;color:var(--text)!important;
+                  font-family:var(--font-mono);font-size:.85rem;
+                  padding:.75rem 1rem .75rem 2.75rem;
+                  transition:border-color .25s,box-shadow .25s;letter-spacing:.04em}
+    .form-control::placeholder{color:var(--muted)}
+    .form-control:focus{border-color:var(--accent)!important;
+                        box-shadow:0 0 0 3px rgba(0,212,255,.1)!important;outline:none}
+    .btn-auth{width:100%;background:transparent;border:1.5px solid var(--accent);
+              border-radius:2px;color:var(--accent);font-family:var(--font-mono);
+              font-size:.8rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+              padding:.85rem 1rem;cursor:pointer;position:relative;overflow:hidden;
+              transition:color .25s,box-shadow .25s;margin-top:.5rem}
+    .btn-auth::before{content:'';position:absolute;inset:0;background:var(--accent);
+                      transform:scaleX(0);transform-origin:left;transition:transform .3s ease;z-index:0}
+    .btn-auth:hover::before{transform:scaleX(1)}
+    .btn-auth:hover{color:var(--bg);box-shadow:0 0 20px rgba(0,212,255,.3)}
+    .btn-auth span{position:relative;z-index:1}
+    .btn-auth:disabled{opacity:.4;cursor:not-allowed}
+    .alert-auth{border-radius:2px;font-size:.75rem;letter-spacing:.04em;padding:.65rem .9rem;
+                margin-bottom:1.1rem;border-left:3px solid var(--danger);
+                background:rgba(255,71,87,.08);color:#ff8593;display:none}
+    .alert-auth.show{display:flex;align-items:center;gap:.5rem}
+    .alert-success{border-color:var(--accent2);background:rgba(0,255,157,.08);color:var(--accent2)}
+    .footer-link{text-align:center;margin-top:1.5rem;font-size:.7rem;
+                 color:var(--muted);letter-spacing:.06em}
+    .footer-link a{color:var(--accent);text-decoration:none;
+                   border-bottom:1px solid transparent;transition:border-color .2s}
+    .footer-link a:hover{border-color:var(--accent)}
+    .webcam-panel{background:var(--surface2);border:1px solid var(--border);border-radius:2px;
+                  overflow:hidden;margin-bottom:1.1rem;position:relative}
+    #video{width:100%;display:block}
+    .scan-line{position:absolute;left:0;right:0;height:2px;
+               background:linear-gradient(90deg,transparent,var(--accent),transparent);
+               animation:scan 2.5s ease-in-out infinite;opacity:.7}
+    @keyframes scan{0%{top:0%;opacity:.7}50%{top:95%;opacity:.7}100%{top:0%;opacity:0}}
+    .step-tabs{display:flex;gap:0;margin-bottom:1.75rem}
+    .step-tab{flex:1;padding:.5rem;text-align:center;font-size:.68rem;letter-spacing:.08em;
+              text-transform:uppercase;color:var(--muted);border-bottom:2px solid var(--border);
+              transition:all .3s;cursor:default}
+    .step-tab.active{color:var(--accent);border-color:var(--accent)}
+    .step-tab.done{color:var(--accent2);border-color:var(--accent2)}
+    .panel{display:none}
+    .panel.active{display:block;animation:fadeUp .35s ease both}
+  </style>
+</head>
+<body>
+<div class="bg-grid"></div>
+<div class="wrapper">
+  <div class="card">
+    <div class="card-accent-bar"></div>
+    <div class="card-body">
+
+      <!-- Brand -->
+      <div class="brand">
+        <div class="brand-icon"><i class="bi bi-person-plus-fill"></i></div>
+        <div>
+          <div class="brand-text">SecureAuth</div>
+          <div class="brand-sub">Create Account</div>
+        </div>
+      </div>
+
+      <!-- Step tabs -->
+      <div class="step-tabs">
+        <div class="step-tab active" id="tab1">1. Details</div>
+        <div class="step-tab" id="tab2">2. Face Enroll</div>
+      </div>
+
+      <!-- Alert box -->
+      <div class="alert-auth" id="alertBox">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        <span id="alertMsg"></span>
+      </div>
+
+      <!-- Panel 1: Account details -->
+      <div class="panel active" id="panel1">
+        <div class="input-wrap">
+          <label class="form-label">Username</label>
+          <input type="text" id="username" class="form-control" placeholder="Choose a username"/>
+          <i class="bi bi-person input-icon"></i>
+        </div>
+        <div class="input-wrap">
+          <label class="form-label">Email</label>
+          <input type="email" id="email" class="form-control" placeholder="your@email.com"/>
+          <i class="bi bi-envelope input-icon"></i>
+        </div>
+        <div class="input-wrap">
+          <label class="form-label">Password</label>
+          <input type="password" id="password" class="form-control" placeholder="Min 8 characters"/>
+          <i class="bi bi-lock input-icon"></i>
+        </div>
+        <button class="btn-auth" id="btn1" onclick="submitDetails()">
+          <span><i class="bi bi-arrow-right-circle me-2"></i>Continue to Face Enroll</span>
+        </button>
+      </div>
+
+      <!-- Panel 2: Face enrollment -->
+      <!-- Panel 2: Face enrollment via image upload -->
+
+      <!-- Panel 2: Face enrollment via webcam -->
+<div class="panel" id="panel2">
+  <p style="font-size:.78rem;color:var(--muted);margin-bottom:1rem;letter-spacing:.03em">
+    Look at the camera and click <b style="color:var(--accent)">Capture Photo</b> first, then click Enroll Face.
+  </p>
+
+  <!-- Video feed -->
+  <div style="position:relative;background:#000;border:1px solid var(--border);
+              border-radius:2px;overflow:hidden;margin-bottom:.75rem">
+    <video id="video" autoplay muted playsinline
+           style="width:100%;display:block;transform:scaleX(-1)"></video>
+    <div style="position:absolute;bottom:8px;left:8px;font-size:.65rem;
+                color:var(--accent);letter-spacing:.08em;text-transform:uppercase">
+      <span id="camStatus">Starting camera…</span>
+    </div>
+  </div>
+
+  <!-- Captured image preview -->
+  <div id="capturePreview" style="display:none;margin-bottom:.75rem">
+    <p style="font-size:.68rem;color:var(--accent2);letter-spacing:.08em;
+              text-transform:uppercase;margin-bottom:.4rem">✓ Photo Captured</p>
+    <img id="capturedImg" style="width:100%;border:1px solid var(--accent2);
+                                  border-radius:2px"/>
+  </div>
+
+  <canvas id="canvas" style="display:none"></canvas>
+
+  <!-- Capture button -->
+  <button class="btn-auth" id="btnCapture" onclick="capturePhoto()" disabled
+          style="margin-bottom:.5rem;border-color:var(--accent2);color:var(--accent2)">
+    <span><i class="bi bi-camera me-2"></i>Capture Photo</span>
+  </button>
+
+  <!-- Enroll button -->
+  <button class="btn-auth" id="btn2" onclick="enrollFace()" disabled>
+    <span><i class="bi bi-person-check me-2"></i>Enroll Face</span>
+  </button>
+
+  <div class="footer-link" style="margin-top:1rem">
+    <a href="#" onclick="skipFace()">Skip for now</a>
+  </div>
+</div>
+       
+
+      <div class="footer-link">
+        Already have an account? <a href="/login">Sign in</a>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  let videoStream  = null;
+let capturedImage = null;
+
+// ── Start camera automatically when panel2 opens ──────
+async function startCamera() {
+  const video     = document.getElementById('video');
+  const camStatus = document.getElementById('camStatus');
+  const btnCapture = document.getElementById('btnCapture');
+
+  camStatus.textContent = 'Starting camera…';
+
+  try {
+    videoStream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        width:      { ideal: 640 },
+        height:     { ideal: 480 },
+        facingMode: 'user'
+      }
+    });
+
+    video.srcObject = videoStream;
+
+    video.onloadedmetadata = () => {
+      video.play();
+      camStatus.textContent = 'Camera ready ✓';
+      btnCapture.disabled = false;
+    };
+
+  } catch(err) {
+    camStatus.textContent = 'Camera error';
+    if (err.name === 'NotAllowedError') {
+      showAlert('Camera blocked. Please allow camera in browser settings.');
+    } else if (err.name === 'NotFoundError') {
+      showAlert('No camera found. Please use Skip for now.');
+    } else {
+      showAlert('Camera error: ' + err.message);
+    }
+  }
+}
+
+// ── Capture photo from video feed ─────────────────────
+function capturePhoto() {
+  const video  = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+
+  if (!videoStream || video.readyState < 2) {
+    showAlert('Camera not ready yet. Please wait.');
+    return;
+  }
+
+  // Set canvas size to video size
+  canvas.width  = video.videoWidth  || 640;
+  canvas.height = video.videoHeight || 480;
+
+  const ctx = canvas.getContext('2d');
+
+  // Mirror the image (fix selfie flip)
+  ctx.translate(canvas.width, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(video, 0, 0);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+  // Brighten image
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = imageData.data;
+  for (let i = 0; i < data.length; i += 4) {
+    data[i]     = Math.min(255, data[i]     * 1.5);
+    data[i + 1] = Math.min(255, data[i + 1] * 1.5);
+    data[i + 2] = Math.min(255, data[i + 2] * 1.5);
+  }
+  ctx.putImageData(imageData, 0, 0);
+
+  // Save captured image
+  capturedImage = canvas.toDataURL('image/jpeg', 0.95);
+
+  // Show preview
+  document.getElementById('capturedImg').src = capturedImage;
+  document.getElementById('capturePreview').style.display = 'block';
+  document.getElementById('btn2').disabled = false;
+
+  showAlert('✓ Photo captured! Now click Enroll Face.', true);
+}
+
+// ── Enroll captured face ───────────────────────────────
+async function enrollFace() {
+  if (!capturedImage) {
+    showAlert('Please capture a photo first.');
+    return;
+  }
+
+  setLoading('btn2', true, 'Enrolling…');
+
+  try {
+    const res  = await fetch('/api/face/enroll', {
+      method:  'POST',
+      headers: {'Content-Type': 'application/json'},
+      body:    JSON.stringify({image: capturedImage})
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      showAlert(data.error || 'No face detected. Please capture again.');
+      document.getElementById('btn2').disabled = false;
+      return;
+    }
+
+    stopCamera();
+    showAlert('✓ Face enrolled successfully! Redirecting…', true);
+    setTimeout(() => window.location.href = '/dashboard', 1500);
+
+  } catch {
+    showAlert('Enrollment failed. Try again or skip.');
+  } finally {
+    setLoading('btn2', false, '<i class="bi bi-person-check me-2"></i>Enroll Face');
+  }
+}
+
+// ── Skip face enrollment ───────────────────────────────
+function skipFace() {
+  stopCamera();
+  window.location.href = '/dashboard';
+}
+
+// ── Stop camera ────────────────────────────────────────
+function stopCamera() {
+  if (videoStream) {
+    videoStream.getTracks().forEach(t => t.stop());
+    videoStream = null;
+  }
+}
+
+// ── Registration form submit ───────────────────────────
+async function submitDetails() {
+  const username = document.getElementById('username').value.trim();
+  const email    = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+
+  if (!username || !email || !password) {
+    showAlert('All fields are required.');
+    return;
+  }
+  if (password.length < 8) {
+    showAlert('Password must be at least 8 characters.');
+    return;
+  }
+
+  setLoading('btn1', true, 'Creating account…');
+
+  try {
+    const res  = await fetch('/api/auth/register', {
+      method:  'POST',
+      headers: {'Content-Type': 'application/json'},
+      body:    JSON.stringify({username, email, password})
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      showAlert(data.error || 'Registration failed.');
+      return;
+    }
+
+    // Move to face enrollment panel
+    document.getElementById('panel1').classList.remove('active');
+    document.getElementById('tab1').className  = 'step-tab done';
+    document.getElementById('panel2').classList.add('active');
+    document.getElementById('tab2').className  = 'step-tab active';
+    hideAlert();
+
+    // Start camera
+    startCamera();
+
+  } catch {
+    showAlert('Server error. Please try again.');
+  } finally {
+    setLoading('btn1', false, '<i class="bi bi-arrow-right-circle me-2"></i>Continue to Face Enroll');
+  }
+}
+
+// ── Helpers ────────────────────────────────────────────
+function showAlert(msg, success = false) {
+  const box = document.getElementById('alertBox');
+  document.getElementById('alertMsg').textContent = msg;
+  box.className = 'alert-auth show' + (success ? ' alert-success' : '');
+}
+
+function hideAlert() {
+  document.getElementById('alertBox').classList.remove('show');
+}
+
+function setLoading(btnId, loading, label) {
+  const btn = document.getElementById(btnId);
+  btn.disabled = loading;
+  btn.querySelector('span').innerHTML = loading
+    ? '<span class="spinner-border spinner-border-sm me-2"></span>' + label
+    : label;
+}
+
+
+  // Draw image to canvas and get base64
+  
+  
+  
+    
+    
+
+
+
+
+    
+
+
+
+</script>
+</body>
+</html>
