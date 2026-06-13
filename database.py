@@ -384,4 +384,3 @@ def get_db_stats() -> dict:
 if __name__ == "__main__":
     init_db()
     print("[DB] Stats:", get_db_stats())
-

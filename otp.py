@@ -15,7 +15,8 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from datetime import datetime, timezone
 
-import pyotp
+import pyotp  # ✅ using pyotp directly — mfa_engine removed
+
 from flask import Blueprint, request, jsonify, session
 
 from database import get_user_by_id, update_login_outcome
@@ -27,13 +28,12 @@ logger = logging.getLogger(__name__)
 
 otp_bp = Blueprint("otp", __name__, url_prefix="/api/auth")
 
-# ── Configuration (set these in environment variables) ────────────────────────
-# In production never hardcode credentials — use a .env file with python-dotenv
+# ── Gmail credentials — hardcoded (change before going to production) ─────────
 
-GMAIL_ADDRESS  = os.environ.get("GMAIL_ADDRESS",  "your_email@gmail.com")
-GMAIL_APP_PASS = os.environ.get("GMAIL_APP_PASS",  "your_app_password")   # 16-char App Password
-OTP_ISSUER     = "AdaptiveMFA"
-OTP_VALID_WINDOW = 1   # allow 1 step before/after (±30s tolerance)
+GMAIL_ADDRESS  = "sunithapandu12345@gmail.com"
+GMAIL_APP_PASS =  "fngn ejmy fqvu eusw"
+OTP_ISSUER       = "AdaptiveMFA"
+OTP_VALID_WINDOW = 1   # allow ±30s tolerance
 
 
 # ── TOTP core ─────────────────────────────────────────────────────────────────
@@ -43,7 +43,7 @@ def generate_otp(otp_secret: str) -> str:
     Generate the current 6-digit TOTP code for a user's secret.
     Valid for 30 seconds (RFC 6238 standard window).
     """
-    totp = pyotp.TOTP(otp_secret)
+    totp = pyotp.TOTP(otp_secret)   # ✅ was mfa_engine.TOTP
     return totp.now()
 
 
@@ -56,7 +56,7 @@ def verify_otp(otp_secret: str, code: str) -> bool:
     if not code or not code.strip().isdigit() or len(code.strip()) != 6:
         return False
     try:
-        totp = pyotp.TOTP(otp_secret)
+        totp = pyotp.TOTP(otp_secret)   # ✅ was mfa_engine.TOTP
         return totp.verify(code.strip(), valid_window=OTP_VALID_WINDOW)
     except Exception as exc:
         logger.error("[OTP] Verification error: %s", exc)
@@ -67,18 +67,12 @@ def verify_otp(otp_secret: str, code: str) -> bool:
 
 def send_otp_email(to_email: str, username: str, otp_code: str) -> bool:
     """
-    Send a styled OTP email via Gmail SMTP (TLS on port 587).
-
+    Send a styled OTP email via Gmail SMTP (SSL on port 465).
     Returns True on success, False on any SMTP error.
-    Requires:
-      GMAIL_ADDRESS  — your Gmail address
-      GMAIL_APP_PASS — 16-character App Password (not your Gmail password)
-                       Generate at: myaccount.google.com/apppasswords
     """
     subject = f"Your SecureAuth verification code: {otp_code}"
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
-    # ── HTML email body ───────────────────────────────────────────────────────
     html_body = f"""
     <!DOCTYPE html>
     <html>
@@ -133,7 +127,6 @@ def send_otp_email(to_email: str, username: str, otp_code: str) -> bool:
     </html>
     """
 
-    # ── Plain-text fallback ───────────────────────────────────────────────────
     text_body = (
         f"Hi {username},\n\n"
         f"Your SecureAuth verification code is: {otp_code}\n\n"
@@ -142,7 +135,6 @@ def send_otp_email(to_email: str, username: str, otp_code: str) -> bool:
         f"If you did not attempt to log in, change your password immediately.\n"
     )
 
-    # ── Build MIME message ────────────────────────────────────────────────────
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
     msg["From"]    = f"SecureAuth <{GMAIL_ADDRESS}>"
@@ -150,11 +142,9 @@ def send_otp_email(to_email: str, username: str, otp_code: str) -> bool:
     msg.attach(MIMEText(text_body, "plain"))
     msg.attach(MIMEText(html_body, "html"))
 
-    # ── Send via Gmail SMTP TLS ───────────────────────────────────────────────
+    # ✅ Using SSL on port 465 — more reliable than STARTTLS 587 for Gmail
     try:
-        with smtplib.SMTP("smtp.gmail.com", 587, timeout=10) as server:
-            server.ehlo()
-            server.starttls()
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10) as server:
             server.login(GMAIL_ADDRESS, GMAIL_APP_PASS)
             server.sendmail(GMAIL_ADDRESS, to_email, msg.as_string())
         logger.info("[OTP] Email sent to %s", to_email)
@@ -175,19 +165,9 @@ def verify_otp_route():
     """
     Step 2 of the adaptive login flow — verify submitted OTP.
 
-    Request JSON
-    ------------
-    { "otp": "123456" }
-
-    Response JSON (success)
-    -----------------------
-    { "message": str, "next_step": "face" | "dashboard" }
-
-    Response JSON (error)
-    ---------------------
-    { "error": str }
+    Request JSON:  { "otp": "123456" }
+    Response JSON: { "message": str, "next_step": "face" | "dashboard" }
     """
-    # Must have completed Step 1
     user_id = session.get(SESSION_KEY_USER)
     if not user_id:
         return jsonify({"error": "Session expired. Please log in again."}), 401
@@ -198,7 +178,6 @@ def verify_otp_route():
     if not code:
         return jsonify({"error": "OTP code is required."}), 400
 
-    # Fetch user's TOTP secret
     user = get_user_by_id(user_id)
     if not user:
         return jsonify({"error": "User not found."}), 404
@@ -206,18 +185,15 @@ def verify_otp_route():
     if not verify_otp(user["otp_secret"], code):
         return jsonify({"error": "Invalid or expired OTP. Please try again."}), 401
 
-    # OTP verified — decide next step based on risk tier
     risk_tier = session.get(SESSION_KEY_TIER, "medium")
     log_id    = session.get(SESSION_KEY_LOG)
 
     if risk_tier == "high":
-        # Face verification still required
         return jsonify({
             "message":   "OTP verified. Facial verification required.",
             "next_step": "face"
         }), 200
     else:
-        # Medium risk — fully authenticated
         if log_id:
             update_login_outcome(log_id, "success")
         return jsonify({
@@ -232,13 +208,12 @@ def verify_otp_route():
 def resend_otp_route():
     """
     Regenerate and resend OTP to the user's registered email.
-    Rate-limited to prevent abuse (max 3 resends per session).
+    Rate-limited to max 3 resends per session.
     """
     user_id = session.get(SESSION_KEY_USER)
     if not user_id:
         return jsonify({"error": "Session expired. Please log in again."}), 401
 
-    # Simple in-session rate limit
     resend_count = session.get("otp_resend_count", 0)
     if resend_count >= 3:
         return jsonify({"error": "Maximum resend limit reached. Please log in again."}), 429
@@ -259,14 +234,13 @@ def resend_otp_route():
     return jsonify({"message": "OTP resent successfully."}), 200
 
 
-# ── Helper: send OTP during login (called by app.py after password verified) ──
+# ── Helper: called by app.py after password verified ─────────────────────────
 
 def trigger_otp_for_user(user_id: int) -> bool:
     """
     Generate and email an OTP for a user.
-    Called by app.py immediately after successful password verification
+    Called by app.py after successful password verification
     when risk tier is medium or high.
-
     Returns True if email sent successfully.
     """
     user = get_user_by_id(user_id)
@@ -284,8 +258,7 @@ if __name__ == "__main__":
     import sys
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
-    # Generate a random secret and test OTP generation + verification
-    secret = pyotp.random_base32()
+    secret = pyotp.random_base32()   # ✅ was mfa_engine.random_base32()
     code   = generate_otp(secret)
 
     print(f"\n── OTP Smoke Test ──")
@@ -294,10 +267,8 @@ if __name__ == "__main__":
     print(f"  Valid now  : {verify_otp(secret, code)}")
     print(f"  Wrong code : {verify_otp(secret, '000000')}")
 
-    # Optional: test email sending
     if len(sys.argv) > 1:
         to = sys.argv[1]
         print(f"\n── Sending test email to {to} ──")
         ok = send_otp_email(to, "TestUser", code)
         print(f"  Sent: {ok}")
-        print("  (Make sure GMAIL_ADDRESS and GMAIL_APP_PASS env vars are set)")

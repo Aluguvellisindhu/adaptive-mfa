@@ -35,10 +35,18 @@ def create_app() -> Flask:
     # ── Secret key (use env var in production) ────────────────────────────────
     app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-in-production-32chars!")
     app.config.update(
-        SESSION_COOKIE_HTTPONLY = True,
-        SESSION_COOKIE_SAMESITE = "Lax",
-        SESSION_COOKIE_SECURE   = False,   # set True in production (HTTPS)
+        SESSION_COOKIE_HTTPONLY    = True,
+        SESSION_COOKIE_SAMESITE    = "Lax",
+        SESSION_COOKIE_SECURE      = False,   # set True in production (HTTPS)
         PERMANENT_SESSION_LIFETIME = timedelta(hours=8),
+
+        # ── Gmail SMTP config ─────────────────────────────────────────────────
+        MAIL_SERVER   = "smtp.gmail.com",
+        MAIL_PORT     = 465,
+        MAIL_USE_SSL  = True,
+        MAIL_USE_TLS  = False,
+        MAIL_USERNAME = os.environ.get("MAIL_USERNAME", "sunithapandu12345@gmail.com"),
+        MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD", "fngn ejmy fqvu eusw"),
     )
 
     # ── Register blueprints ───────────────────────────────────────────────────
@@ -58,41 +66,39 @@ def create_app() -> Flask:
 
     # ── HTML page routes ──────────────────────────────────────────────────────
 
-    @app.route("/")
+    @app.route('/')
     def index():
         """Redirect root to login or dashboard depending on session."""
         if session.get(SESSION_KEY_USER):
             return redirect(url_for("dashboard"))
         return redirect(url_for("login"))
 
-    @app.route("/login")
+    @app.route('/login')
     def login():
         """Serve the adaptive login page."""
         if session.get(SESSION_KEY_USER):
             return redirect(url_for("dashboard"))
         return render_template("login.html")
 
-    @app.route("/register")
+    @app.route('/register')
     def register_page():
         """Serve the registration page."""
         return render_template("register.html")
 
-    @app.route("/enroll")
+    @app.route('/enroll')
     def enroll_page():
         """Face enrollment page — only accessible after registration."""
         if not session.get(SESSION_KEY_USER):
             return redirect(url_for("login"))
         return render_template("enroll.html")
 
-    @app.route("/dashboard")
+    @app.route('/dashboard')
     @login_required
     def dashboard():
         """Protected dashboard — only reachable after full MFA."""
         return render_template("dashboard.html")
 
     # ── Trigger OTP after password verified ───────────────────────────────────
-    # Override the /api/auth/password response to also send OTP email
-    # when risk tier is medium or high.
 
     @app.after_request
     def send_otp_after_password(response):
@@ -109,13 +115,14 @@ def create_app() -> Flask:
             risk_tier = session.get(SESSION_KEY_TIER)
             if user_id and risk_tier in ("medium", "high"):
                 sent = trigger_otp_for_user(user_id)
+                print("OTP sent:", sent)
                 if not sent:
                     logger.warning("[App] OTP email failed for user_id=%d", user_id)
         return response
 
     # ── Health check ──────────────────────────────────────────────────────────
 
-    @app.route("/api/health")
+    @app.route('/api/health')
     def health():
         """Quick health check endpoint."""
         stats = get_db_stats()
@@ -157,10 +164,3 @@ if __name__ == "__main__":
         port=5000,
         debug=True,
     )
-    from flask import Flask, render_template, request
-
-app = Flask(__name__)
-
-@app.route("/")
-def home():
-    return render_template("login.html")

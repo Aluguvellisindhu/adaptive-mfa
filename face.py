@@ -39,7 +39,7 @@ face_enroll_bp = Blueprint("face_enroll", __name__, url_prefix="/api/face")
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
-FACE_MATCH_TOLERANCE = 0.7  # lower = stricter (0.4 very strict, 0.6 lenient)
+FACE_MATCH_TOLERANCE = 0.45 # lower = stricter (0.4 very strict, 0.6 lenient)
 MAX_IMAGE_SIZE       = (640, 480)   # resize large frames before processing
 MIN_FACE_CONFIDENCE  = 0.9    # minimum detection confidence
 
